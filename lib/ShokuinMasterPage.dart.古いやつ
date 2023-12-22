@@ -1,0 +1,174 @@
+import 'package:flutter/material.dart';
+import 'package:pdfx/pdfx.dart';
+
+class ShokuinMasterPage extends StatelessWidget{
+
+  @override
+  Widget build(BuildContext context) {
+    return ShokuinMaster();
+  }
+
+}
+
+class ShokuinMaster extends StatefulWidget {
+  const ShokuinMaster({Key? key}) : super(key: key);
+
+  @override
+  _ShokuinMasterState createState() => _ShokuinMasterState();
+}
+
+
+class _ShokuinMasterState extends State<ShokuinMaster> {
+  final pdfController = PdfController(
+    document: PdfDocument.openAsset('assets/staff_master_maintenance.pdf'),
+  );
+
+  int _actualPageNumber = 1, _allPagesCount = 0;
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor:Colors.grey,
+      appBar: AppBar(
+        centerTitle: true,
+        title : Column(
+          children: [
+            Text("職員マスタ作業"),
+            PdfPageNumber(
+              controller: pdfController,
+              // When `loadingState != PdfLoadingState.success`  `pagesCount` equals null_
+              builder: (_, state, loadingState, pagesCount) => Container(
+                alignment: Alignment.center,
+                child: Text(
+                  '$_actualPageNumber/${pagesCount ?? 0}',
+                  style: const TextStyle(fontSize: 22),
+                ),
+              ),
+            )
+          ],
+        ),
+      ),
+      body: Center(
+        child: PdfView(
+          pageSnapping: false,
+          scrollDirection: Axis.vertical,
+          controller: pdfController,
+          // renderer: (PdfPage page) => page.render(
+          //   width: page.width * 5,
+          //   height: page.height * 5,
+          //   format: PdfPageImageFormat.png,
+          //   backgroundColor: '#FFFFFF',
+          // ),
+          onDocumentLoaded: (document) {
+            setState(() {
+              _allPagesCount = document.pagesCount;
+            });
+          },
+          onPageChanged: (page) {
+            setState(() {
+            _actualPageNumber = page;
+            });
+          },
+          builders: PdfViewBuilders<DefaultBuilderOptions>(
+            pageBuilder: SomeWidget.pageBuilder,
+            options: const DefaultBuilderOptions(
+                            loaderSwitchDuration: const Duration(milliseconds: 0),
+                          ),
+          ),
+        ),
+      ),
+      floatingActionButton: Column(
+        mainAxisAlignment: MainAxisAlignment.end,
+        children: <Widget>[
+          FloatingActionButton(
+            heroTag: 'prepage',
+            onPressed: () async {
+              pdfController.previousPage(duration: Duration(milliseconds: 250), curve: Curves.easeOut);
+            },
+            child: Icon(
+              Icons.north,
+              color: Colors.white,
+              ),
+          ),
+          SizedBox(height: 30),
+          FloatingActionButton(
+            heroTag: 'nxtpage',
+            child: Icon(
+              Icons.south,
+              color: Colors.white,
+              ),
+            onPressed: () async {
+              pdfController.nextPage(duration: Duration(milliseconds: 250), curve: Curves.easeIn);
+            },
+          ),
+        ],
+      ),
+
+    );
+  }
+}
+
+//PDF表示設定色々
+class SomeWidget {
+  static Widget builder(
+    BuildContext context,
+    PdfViewPinchBuilders builders,
+    PdfLoadingState state,
+    WidgetBuilder loadedBuilder,
+    PdfDocument? document,
+    Exception? loadingError,
+  ) {
+    final Widget content = () {
+      switch (state) {
+        case PdfLoadingState.loading:
+          return KeyedSubtree(
+            key: const Key('pdfx.root.loading'),
+            child: builders.documentLoaderBuilder?.call(context) ??
+                const SizedBox(),
+          );
+        case PdfLoadingState.error:
+          return KeyedSubtree(
+            key: const Key('pdfx.root.error'),
+            child: builders.errorBuilder?.call(context, loadingError!) ??
+                Center(child: Text(loadingError.toString())),
+          );
+        case PdfLoadingState.success:
+          return KeyedSubtree(
+            key: Key('pdfx.root.success.${document!.id}'),
+            child: loadedBuilder(context),
+          );
+      }
+    }();
+
+    final defaultBuilder =
+        builders as PdfViewPinchBuilders<DefaultBuilderOptions>;
+    final options = defaultBuilder.options;
+
+    return AnimatedSwitcher(
+      duration: options.loaderSwitchDuration,
+      transitionBuilder: options.transitionBuilder,
+      child: content,
+    );
+  }
+
+  static Widget transitionBuilder(Widget child, Animation<double> animation) =>
+      FadeTransition(opacity: animation, child: child);
+
+  static PhotoViewGalleryPageOptions pageBuilder(
+    BuildContext context,
+    Future<PdfPageImage> pageImage,
+    int index,
+    PdfDocument document,
+  ) =>
+      PhotoViewGalleryPageOptions(
+        imageProvider: PdfPageImageProvider(
+          pageImage,
+          index,
+          document.id,
+        ),
+        minScale: PhotoViewComputedScale.contained * 1.0,
+        maxScale: PhotoViewComputedScale.contained * 3.0,
+        initialScale: PhotoViewComputedScale.contained * 1.0,
+        heroAttributes: PhotoViewHeroAttributes(tag: '${document.id}-$index'),
+      );
+}
