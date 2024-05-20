@@ -215,7 +215,7 @@ class _MyHomePageState extends State<MyHomePage> {
               },
             ),
             // ListTile(
-            //   title: const Text('エクスプローラーテスト'),
+            //   title: const Text('エクスプローラーテスト!'),
             //    onTap: () {
             //     Navigator.push(context, MaterialPageRoute(
             //       // （2） 実際に表示するページ(ウィジェット)を指定する
